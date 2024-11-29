@@ -236,11 +236,16 @@ impl FrameWriteState {
             let num = stream
                 .write_vectored(&[IoSlice::new(header), IoSlice::new(payload)])
                 .await?;
-            let remain = total_bytes - num;
-            if remain > 0 {
-                stream
-                    .write_all(&payload[(payload.len() - remain)..])
-                    .await?;
+            if num != total_bytes {
+                let header_len = header.len();
+                // num was less than header
+                if num < header_len {
+                    stream.write_all(&header[num..]).await?;
+                    stream.write_all(&payload).await?;
+                } else {
+					// header has been written fully
+                    stream.write_all(&payload[(num - header_len)..]).await?;
+                }
             }
         };
 
